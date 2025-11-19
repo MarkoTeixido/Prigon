@@ -1,0 +1,16 @@
+# requirements-ai.txt
+# Dependencias para funcionalidades de IA
+
+# Google Gemini (IA conversacional)
+google-generativeai==0.8.3
+
+# Discord Bot
+discord.py==2.4.0
+
+# Google Calendar
+google-auth==2.35.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.149.0
+
+# Async utilities (ya incluido en discord.py pero por las dudas)
+aiohttp==3.13.2
