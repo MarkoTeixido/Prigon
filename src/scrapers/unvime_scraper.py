@@ -192,24 +192,37 @@ class UNVimeScraper(BaseScraper):
             año: Año del evento
             
         Returns:
-            Lista de objetos Evento
+            Lista de objetos Evento (puede incluir múltiples eventos si es un rango)
         """
         eventos = []
         
-        # Caso 1: Rango de fechas "1/1 al 2/2" o "3/3 al 4/3"
+        # Caso 1: Rango de fechas "2/12 al 5/12" o "3/3 al 4/3"
         if ' al ' in fecha_texto:
-            # Tomar solo la fecha de inicio
-            fecha_inicio = fecha_texto.split(' al ')[0].strip()
-            
             try:
-                fecha = self._parsear_fecha(fecha_inicio, mes_default, año)
-                if fecha:
-                    categoria = self._categorizar_por_titulo(titulo)
-                    eventos.append(Evento(
-                        fecha=fecha,
-                        titulo=titulo,
-                        categoria=categoria
-                    ))
+                partes = fecha_texto.split(' al ')
+                fecha_inicio_texto = partes[0].strip()
+                fecha_fin_texto = partes[1].strip()
+                
+                # Parsear fechas de inicio y fin
+                fecha_inicio = self._parsear_fecha(fecha_inicio_texto, mes_default, año)
+                fecha_fin = self._parsear_fecha(fecha_fin_texto, mes_default, año)
+                
+                if fecha_inicio and fecha_fin:
+                    # ✅ CREAR UN EVENTO POR CADA DÍA DEL RANGO
+                    from datetime import timedelta
+                    
+                    fecha_actual = fecha_inicio
+                    while fecha_actual <= fecha_fin:
+                        categoria = self._categorizar_por_titulo(titulo)
+                        eventos.append(Evento(
+                            fecha=fecha_actual,
+                            titulo=titulo,
+                            categoria=categoria
+                        ))
+                        fecha_actual += timedelta(days=1)
+                    
+                    self.logger.debug(f"   Rango expandido: {fecha_inicio.date()} al {fecha_fin.date()} = {len(eventos)} eventos")
+                
             except Exception as e:
                 self.logger.warning(f"Error parseando rango '{fecha_texto}': {e}")
         

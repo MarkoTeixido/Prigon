@@ -1,3 +1,5 @@
+# .gitignore
+
 # Python
 __pycache__/
 *.py[cod]
@@ -7,39 +9,41 @@ __pycache__/
 venv/
 env/
 ENV/
-.venv/
+*.egg-info/
+dist/
+build/
 
-# Secrets (CRÍTICO)
+# Environment variables
 .env
-*.env
-!.env.example
-
-# Debug files
-debug_calendario.html
-
-# Logs
-logs/
-*.log
-
-# Cache
-.cache/
-*.cache
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# Logs
+*.log
+logs/
 
-# Builds
-dist/
-build/
-*.egg-info/
+# Testing
+test_*.py
+debug_*.html
+
+# Credentials
+credentials/
+credentials/*.json
+!credentials/.gitkeep
+credentials/token.json
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+tmp/
+temp/

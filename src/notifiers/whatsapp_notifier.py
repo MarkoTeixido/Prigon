@@ -1,178 +1,181 @@
 # src/notifiers/whatsapp_notifier.py
 """
-📱 Notificador para WhatsApp usando Twilio
+📱 Notificador de WhatsApp usando Twilio
+Con botones interactivos para Google Calendar
 """
 
-from typing import Optional
+from typing import List, Optional
 from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
 from src.notifiers.base import BaseNotifier
+from src.models.evento import Evento
 from src.config.settings import settings
 
 
 class WhatsAppNotifier(BaseNotifier):
     """
-    Notificador que envía mensajes a WhatsApp mediante Twilio.
-    
-    Requiere configurar en .env:
-    - TWILIO_ACCOUNT_SID
-    - TWILIO_AUTH_TOKEN
-    - TWILIO_WHATSAPP_FROM
-    - TWILIO_WHATSAPP_TO
-    
-    Para desarrollo, puedes usar el sandbox gratuito de Twilio:
-    https://www.twilio.com/console/sms/whatsapp/learn
+    Notificador que envía mensajes por WhatsApp usando Twilio.
+    Incluye botones para agregar eventos a Google Calendar.
     """
     
-    def __init__(
-        self,
-        account_sid: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        from_number: Optional[str] = None,
-        to_number: Optional[str] = None
-    ):
-        """
-        Inicializa el notificador de WhatsApp.
-        
-        Args:
-            account_sid: Twilio Account SID (opcional, usa config)
-            auth_token: Twilio Auth Token (opcional, usa config)
-            from_number: Número de origen (opcional, usa config)
-            to_number: Número destino (opcional, usa config)
-        """
+    def __init__(self):
         super().__init__("WhatsApp")
         
-        self.account_sid = account_sid or settings.twilio_account_sid
-        self.auth_token = auth_token or settings.twilio_auth_token
-        self.from_number = from_number or settings.twilio_whatsapp_from
-        self.to_number = to_number or settings.twilio_whatsapp_to
+        # Validar configuración
+        if not self.is_configured():
+            self.logger.error("❌ Configuración de Twilio incompleta en .env")
+            self.enabled = False
+            return
         
-        self.client = None
-        if self.is_configured():
-            try:
-                self.client = Client(self.account_sid, self.auth_token)
-                self.logger.info("Cliente de Twilio inicializado correctamente")
-            except Exception as e:
-                self.logger.error(f"Error inicializando cliente de Twilio: {e}")
+        try:
+            # Inicializar cliente de Twilio
+            self.client = Client(
+                settings.twilio_account_sid,
+                settings.twilio_auth_token
+            )
+            self.from_number = settings.twilio_whatsapp_from
+            self.to_number = settings.twilio_whatsapp_to
+            
+            self.logger.info("Cliente de Twilio inicializado correctamente")
+            self.enabled = True
+            
+        except Exception as e:
+            self.logger.error(f"Error inicializando Twilio: {e}", exc_info=True)
+            self.enabled = False
     
     def is_configured(self) -> bool:
         """
-        Verifica si WhatsApp/Twilio está configurado.
+        Verifica si el notificador está configurado correctamente.
         
         Returns:
-            True si todas las credenciales están presentes
+            True si todas las credenciales están configuradas
         """
         return all([
-            self.account_sid,
-            self.auth_token,
-            self.from_number,
-            self.to_number
+            settings.twilio_account_sid,
+            settings.twilio_auth_token,
+            settings.twilio_whatsapp_from,
+            settings.twilio_whatsapp_to
         ])
     
-    def enviar(self, mensaje: str) -> bool:
+    def enviar(self, eventos: List[Evento]) -> bool:
         """
-        Envía un mensaje por WhatsApp.
+        Envía notificación por WhatsApp con botones interactivos.
         
         Args:
-            mensaje: Mensaje a enviar
+            eventos: Lista de eventos a notificar
             
         Returns:
-            True si se envió exitosamente
+            True si se envió correctamente
         """
-        if not self.is_configured():
-            self.logger.error("WhatsApp/Twilio no está configurado")
+        if not self.enabled:
+            self.logger.warning("Notificador de WhatsApp deshabilitado")
             return False
         
-        if not self.client:
-            self.logger.error("Cliente de Twilio no inicializado")
-            return False
+        if not eventos:
+            self.logger.info("No hay eventos para notificar")
+            return True
         
         try:
-            # Adaptar mensaje para WhatsApp (texto plano, sin markdown complejo)
-            mensaje_adaptado = self._adaptar_formato_whatsapp(mensaje)
-            
-            self.logger.info(f"Enviando mensaje a WhatsApp: {self.to_number}")
-            
-            # 🔧 LOG DEBUG: Ver qué se está enviando
-            self.logger.debug(f"From: {self.from_number}")
-            self.logger.debug(f"To: {self.to_number}")
-            self.logger.debug(f"Body length: {len(mensaje_adaptado)}")
+            # Construir mensaje con formato mejorado
+            mensaje = self._construir_mensaje_interactivo(eventos)
             
             # Enviar mensaje
             message = self.client.messages.create(
                 from_=self.from_number,
-                to=self.to_number,
-                body=mensaje_adaptado
+                body=mensaje,
+                to=self.to_number
             )
             
-            self.logger.info(f"✅ Mensaje enviado exitosamente. SID: {message.sid}")
-            self.logger.debug(f"Estado: {message.status}")
-            
+            self.logger.info(f"✅ WhatsApp enviado. SID: {message.sid}")
             return True
             
-        except TwilioRestException as e:
-            self.logger.error(f"❌ Error de Twilio: {e.msg}")
-            self.logger.debug(f"Código: {e.code}, Status: {e.status}")
-            
-            # Debug adicional
-            self.logger.debug(f"From number: '{self.from_number}'")
-            self.logger.debug(f"To number: '{self.to_number}'")
-            
-            return False
-            
         except Exception as e:
-            self.logger.error(f"❌ Error inesperado: {e}", exc_info=True)
+            self.logger.error(f"❌ Error enviando WhatsApp: {e}", exc_info=True)
             return False
     
-    def _adaptar_formato_whatsapp(self, mensaje: str) -> str:
+    def enviar_con_calendario(self, eventos: List[Evento], link_calendario: str) -> bool:
         """
-        Adapta el mensaje para WhatsApp.
-        WhatsApp soporta markdown limitado: *negrita*, _cursiva_, ~tachado~
+        Envía notificación con link para agregar a Google Calendar.
         
         Args:
-            mensaje: Mensaje original
+            eventos: Lista de eventos
+            link_calendario: URL para agregar eventos
             
         Returns:
-            Mensaje adaptado para WhatsApp
+            True si se envió correctamente
         """
-        # WhatsApp no soporta ** para negrita, usa *
-        mensaje = mensaje.replace('**', '*')
-        
-        # Simplificar emojis complejos si es necesario
-        # (WhatsApp soporta emojis bien, así que los dejamos)
-        
-        # Limitar longitud (WhatsApp tiene límite de ~1600 caracteres)
-        MAX_LENGTH = 1600
-        if len(mensaje) > MAX_LENGTH:
-            mensaje = mensaje[:MAX_LENGTH - 50] + "\n\n... (mensaje truncado)"
-            self.logger.warning("Mensaje truncado por límite de WhatsApp")
-        
-        return mensaje
-    
-    def verificar_estado(self) -> dict:
-        """
-        Verifica el estado de la conexión con Twilio.
-        Útil para debugging.
-        
-        Returns:
-            Diccionario con información de estado
-        """
-        if not self.is_configured():
-            return {"configurado": False, "error": "Credenciales faltantes"}
+        if not self.enabled:
+            return False
         
         try:
-            # Intentar obtener información de la cuenta
-            account = self.client.api.accounts(self.account_sid).fetch()
+            mensaje = self._construir_mensaje_interactivo(eventos)
+            mensaje += f"\n\n🔗 *Agregar todos a tu calendario:*\n{link_calendario}"
             
-            return {
-                "configurado": True,
-                "account_sid": account.sid,
-                "status": account.status,
-                "friendly_name": account.friendly_name
-            }
+            message = self.client.messages.create(
+                from_=self.from_number,
+                body=mensaje,
+                to=self.to_number
+            )
+            
+            self.logger.info(f"✅ WhatsApp con calendario enviado. SID: {message.sid}")
+            return True
             
         except Exception as e:
-            return {
-                "configurado": True,
-                "error": str(e)
-            }
+            self.logger.error(f"❌ Error enviando WhatsApp: {e}", exc_info=True)
+            return False
+    
+    def _construir_mensaje_interactivo(self, eventos: List[Evento]) -> str:
+        """
+        Construye mensaje con formato mejorado y emojis.
+        
+        Args:
+            eventos: Lista de eventos
+            
+        Returns:
+            Mensaje formateado
+        """
+        # Encabezado
+        lineas = [
+            "🎓 *CALENDARIO ACADÉMICO UNViMe* 🎓",
+            "",
+            f"📅 *Próximos {len(eventos)} eventos:*",
+            ""
+        ]
+        
+        # Agrupar eventos por categoría
+        eventos_por_categoria = {}
+        for evento in eventos:
+            cat = evento.categoria.upper()
+            if cat not in eventos_por_categoria:
+                eventos_por_categoria[cat] = []
+            eventos_por_categoria[cat].append(evento)
+        
+        # Emojis por categoría
+        emojis = {
+            "ACADEMICO": "🎓",
+            "EXAMEN": "📝",
+            "FERIADO": "🎉",
+            "INSTITUCIONAL": "🏛️",
+            "RECESO": "🏖️",
+            "OTRO": "📌"
+        }
+        
+        # Agregar eventos por categoría
+        for categoria, eventos_cat in eventos_por_categoria.items():
+            emoji = emojis.get(categoria, "📅")
+            lineas.append(f"*{emoji} {categoria}*")
+            
+            for evento in eventos_cat:
+                fecha = evento.fecha.strftime("%d/%m (%A)")
+                lineas.append(f"• {fecha}: {evento.titulo}")
+            
+            lineas.append("")
+        
+        # Footer con instrucciones
+        lineas.extend([
+            "─────────────────────",
+            "💡 *¿Quieres agregar estos eventos a tu Google Calendar?*",
+            "",
+            "Responde con: *CALENDARIO* y te enviaré los links"
+        ])
+        
+        return "\n".join(lineas)

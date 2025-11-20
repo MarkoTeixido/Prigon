@@ -45,6 +45,45 @@ Categorías de eventos:
 - 📌 OTRO: fechas importantes varias
 """
     
+    def obtener_eventos_semana(self) -> List[Evento]:
+        """
+        Obtiene eventos de la próxima semana.
+        
+        Returns:
+            Lista de eventos de la próxima semana
+        """
+        try:
+            self.logger.debug("Obteniendo eventos de la próxima semana...")
+            
+            # Obtener todos los eventos del scraper
+            todos_eventos = self.calendario_service.scraper.obtener_eventos()
+            
+            # Filtrar solo la próxima semana
+            eventos_proximos = self.calendario_service.filtrar_proxima_semana(todos_eventos)
+            
+            self.logger.debug(f"Eventos obtenidos: {len(eventos_proximos)}")
+            return eventos_proximos
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo eventos de la semana: {e}", exc_info=True)
+            return []
+    
+    def _obtener_todos_eventos(self) -> List[Evento]:
+        """
+        Obtiene todos los eventos del calendario.
+        """
+        try:
+            # Obtener eventos del scraper directamente
+            self.logger.debug("Obteniendo todos los eventos del calendario...")
+            eventos = self.calendario_service.scraper.obtener_eventos()
+            
+            self.logger.debug(f"Total eventos obtenidos: {len(eventos)}")
+            return eventos
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo eventos: {e}", exc_info=True)
+            return []
+    
     async def responder(self, pregunta: str, contexto_eventos: Optional[List[Evento]] = None) -> str:
         """
         Responde una pregunta del usuario sobre el calendario.
@@ -57,18 +96,40 @@ Categorías de eventos:
             Respuesta del chatbot
         """
         try:
-            # Si no se proporcionaron eventos, obtener los próximos
+            # Si no se proporcionaron eventos, obtener y filtrar inteligentemente
             if contexto_eventos is None:
-                contexto_eventos = self.calendario_service.obtener_eventos()[:20]  # Solo los primeros 20
+                self.logger.debug("Obteniendo y filtrando eventos para el contexto...")
+                
+                # Obtener todos los eventos
+                todos_eventos = self._obtener_todos_eventos()
+                
+                # ✅ USAR FILTRO INTELIGENTE
+                from src.services.evento_filter import EventoFilter
+                filtro = EventoFilter()
+                contexto_eventos = filtro.filtrar(pregunta, todos_eventos)
+                
+                self.logger.info(f"Eventos en contexto (filtrados inteligentemente): {len(contexto_eventos)}")
+            
+            if not contexto_eventos:
+                return (
+                    "❌ Lo siento, no pude obtener información del calendario en este momento. "
+                    "Por favor, consulta https://www.unvime.edu.ar/calendario/"
+                )
             
             # Construir contexto con eventos reales
             eventos_texto = self._formatear_eventos_para_llm(contexto_eventos)
+            
+            # Obtener fecha actual
+            fecha_actual = datetime.now().strftime("%d de %B de %Y")
+            dia_semana = datetime.now().strftime("%A")
             
             # Construir prompt completo
             prompt_completo = f"""
 {self.system_context}
 
-EVENTOS DEL CALENDARIO ACADÉMICO 2025:
+FECHA Y HORA ACTUAL: {dia_semana}, {fecha_actual}
+
+EVENTOS DEL CALENDARIO ACADÉMICO:
 {eventos_texto}
 
 ---
@@ -78,9 +139,11 @@ PREGUNTA DEL ESTUDIANTE:
 
 INSTRUCCIONES:
 - Usa SOLO la información de los eventos proporcionados
-- Si la pregunta no se puede responder con los eventos, dilo amablemente
+- La fecha actual es {fecha_actual}, úsala para interpretar "esta semana", "hoy", "mañana", etc.
+- Si la pregunta no se puede responder con los eventos disponibles, dilo amablemente
 - Sé conciso (máximo 200 palabras)
 - Usa emojis apropiados
+- Siempre menciona las fechas de forma clara
 """
             
             self.logger.debug(f"Procesando pregunta: {pregunta[:50]}...")
@@ -106,7 +169,18 @@ INSTRUCCIONES:
     def responder_sync(self, pregunta: str, contexto_eventos: Optional[List[Evento]] = None) -> str:
         """Versión sincrónica de responder()"""
         import asyncio
-        return asyncio.run(self.responder(pregunta, contexto_eventos))
+        
+        # Arreglar problema del event loop cerrado
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        return loop.run_until_complete(self.responder(pregunta, contexto_eventos))
     
     def _formatear_eventos_para_llm(self, eventos: List[Evento]) -> str:
         """
@@ -152,7 +226,7 @@ INSTRUCCIONES:
         }
         return emojis.get(categoria.lower(), "📅")
     
-    async def buscar_eventos(self, query: str, dias_adelante: int = 30) -> List[Evento]:
+    async def buscar_eventos(self, query: str, dias_adelante: int = 90) -> List[Evento]:
         """
         Busca eventos relevantes según una query.
         
@@ -165,7 +239,10 @@ INSTRUCCIONES:
         """
         try:
             # Obtener todos los eventos
-            todos_eventos = self.calendario_service.obtener_eventos()
+            todos_eventos = self._obtener_todos_eventos()
+            
+            if not todos_eventos:
+                return []
             
             # Filtrar por fecha (próximos X días)
             fecha_limite = datetime.now() + timedelta(days=dias_adelante)
@@ -198,7 +275,7 @@ INSTRUCCIONES:
             Lista de eventos de ese día
         """
         try:
-            todos_eventos = self.calendario_service.obtener_eventos()
+            todos_eventos = self._obtener_todos_eventos()
             
             eventos_dia = [
                 e for e in todos_eventos
