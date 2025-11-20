@@ -1,58 +1,52 @@
 # run.py
 """
-🎓 Pregon - Sistema de Notificaciones UNViMe
-Script principal de ejecución
+🚀 Script principal de ejecución de Pregon
 """
 
 import sys
-from src.services.calendario_service import CalendarioService
-from src.utils.logger import setup_logger
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
 load_dotenv()
 
-# Logger principal
-logger = setup_logger("Main")
-
+def mostrar_menu():
+    print("="*70)
+    print("🤖 PREGON - Sistema de Calendario Académico UNViMe")
+    print("="*70)
+    print()
+    print("Selecciona qué ejecutar:")
+    print()
+    print("1. Bot de Discord (interactivo)")
+    print("2. Webhook de WhatsApp (servidor)")
+    print("3. Notificaciones programadas (scheduler)")
+    print("4. Salir")
+    print()
+    print("="*70)
 
 def main():
-    """Función principal"""
-    try:
-        # Crear e inicializar el servicio
-        servicio = CalendarioService()
+    while True:
+        mostrar_menu()
+        opcion = input("Selecciona una opción (1-4): ").strip()
         
-        # Ejecutar
-        resultado = servicio.ejecutar()
+        if opcion == "1":
+            from src.integrations.discord_bot import run_discord_bot
+            run_discord_bot()
+            break
         
-        # Verificar resultado
-        if resultado["exito"]:
-            logger.info("\n🎉 ¡Ejecución exitosa!")
-            
-            # Mostrar resumen
-            logger.info("\n📊 RESUMEN:")
-            logger.info(f"   • Eventos totales extraídos: {resultado['eventos_totales']}")
-            logger.info(f"   • Eventos de la próxima semana: {resultado['eventos_proximos']}")
-            
-            notif = resultado['notificaciones']
-            logger.info(f"   • Notificaciones enviadas: {notif['exitosos']}/{notif['total']}")
-            
-            for canal, estado in notif['detalles'].items():
-                logger.info(f"     {estado} {canal}")
-            
-            return 0
+        elif opcion == "2":
+            from src.integrations.whatsapp_webhook import run_webhook_server
+            run_webhook_server(port=5000)
+            break
+        
+        elif opcion == "3":
+            print("⚠️ Scheduler no implementado aún")
+            continue
+        
+        elif opcion == "4":
+            print("👋 ¡Hasta luego!")
+            sys.exit(0)
+        
         else:
-            logger.error(f"\n💥 Ejecución fallida: {resultado.get('error', 'Error desconocido')}")
-            return 1
-            
-    except KeyboardInterrupt:
-        logger.warning("\n⚠️ Ejecución cancelada por el usuario")
-        return 130
-        
-    except Exception as e:
-        logger.error(f"\n💥 Error crítico: {e}", exc_info=True)
-        return 1
-
+            print("❌ Opción inválida. Intenta de nuevo.\n")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
