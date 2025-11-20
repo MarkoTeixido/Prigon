@@ -96,9 +96,21 @@ class EventosTools:
     ) -> Dict:
         """
         Busca eventos con filtros.
+        
+        Args:
+            query: Texto a buscar
+            categoria: Categoría de evento
+            desde: Fecha desde (YYYY-MM-DD)
+            hasta: Fecha hasta (YYYY-MM-DD)
+            
+        Returns:
+            Diccionario con eventos encontrados
         """
+        # ✅ INICIALIZAR VARIABLE ANTES DEL TRY
+        eventos_filtrados = []
+        
         try:
-            # VALIDAR FECHAS SI SE PROPORCIONAN
+            # ✅ VALIDAR FECHAS SI SE PROPORCIONAN
             if desde:
                 valida, _ = validar_fecha(desde)
                 if not valida:
@@ -112,13 +124,38 @@ class EventosTools:
             if desde and hasta:
                 if not validar_rango_fechas(desde, hasta):
                     return {"error": "El rango de fechas es inválido (desde debe ser <= hasta)"}
-                
-                if hasta:
-                    fecha_hasta = datetime.strptime(hasta, "%Y-%m-%d")
-                    eventos_filtrados = [
-                        ev for ev in eventos_filtrados
-                        if ev.fecha <= fecha_hasta
-                    ]
+            
+            # Obtener todos los eventos
+            todos_eventos = self._obtener_todos_eventos()
+            
+            # Aplicar filtros
+            eventos_filtrados = todos_eventos
+            
+            if query:
+                eventos_filtrados = [
+                    ev for ev in eventos_filtrados
+                    if query.lower() in ev.titulo.lower()
+                ]
+            
+            if categoria:
+                eventos_filtrados = [
+                    ev for ev in eventos_filtrados
+                    if ev.categoria.lower() == categoria.lower()
+                ]
+            
+            if desde:
+                fecha_desde = datetime.strptime(desde, "%Y-%m-%d")
+                eventos_filtrados = [
+                    ev for ev in eventos_filtrados
+                    if ev.fecha >= fecha_desde
+                ]
+            
+            if hasta:
+                fecha_hasta = datetime.strptime(hasta, "%Y-%m-%d")
+                eventos_filtrados = [
+                    ev for ev in eventos_filtrados
+                    if ev.fecha <= fecha_hasta
+                ]
             
             # Ordenar por fecha
             eventos_filtrados.sort(key=lambda x: x.fecha)

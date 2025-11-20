@@ -31,7 +31,6 @@ Thumbs.db
 logs/
 
 # Testing
-test_*.py
 debug_*.html
 
 # Credentials
