@@ -17,14 +17,16 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Use Railway Action
+    - name: Deploy Discord Service
       uses: bervProject/railway-deploy@main
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       with:
-        railway_token: ${{ secrets.RAILWAY_TOKEN }}
         service: "Pregon-Discord"
     
-    - name: Deploy WhatsApp  
+    - name: Deploy WhatsApp Service
       uses: bervProject/railway-deploy@main
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       with:
-        railway_token: ${{ secrets.RAILWAY_TOKEN }}
         service: "Pregon-WhatsApp"
