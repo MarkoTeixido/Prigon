@@ -1,5 +1,4 @@
 # docker-compose.yml
-version: '3.9'
 
 services:
   # Discord Bot
@@ -13,6 +12,7 @@ services:
       - ENVIRONMENT=production
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - CALENDAR_URL=${CALENDAR_URL}
       - LOG_LEVEL=INFO
@@ -21,7 +21,7 @@ services:
       - ./cache:/app/cache
     networks:
       - pregon-network
-    command: ["python", "-c", "from src.integrations.discord_bot import DiscordBot; import asyncio; bot = DiscordBot(); asyncio.run(bot.start())"]
+    command: ["python", "-c", "from src.integrations.discord_bot import run_discord_bot; run_discord_bot()"]
     healthcheck:
       test: ["CMD", "python", "-c", "print('OK')"]
       interval: 30s
@@ -60,26 +60,29 @@ services:
       retries: 3
       start_period: 10s
 
-  # Scheduler (notificaciones automáticas)
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: pregon-scheduler
-    restart: unless-stopped
-    environment:
-      - ENVIRONMENT=production
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - CALENDAR_URL=${CALENDAR_URL}
-      - LOG_LEVEL=INFO
-    volumes:
-      - ./logs:/app/logs
-      - ./cache:/app/cache
-    networks:
-      - pregon-network
-    command: ["python", "-c", "from src.services.calendario_service import CalendarioService; import time; service = CalendarioService(); [service.ejecutar() or time.sleep(86400) for _ in iter(int, 1)]"]
+  # ⚠️ SCHEDULER DESHABILITADO (causaba spam)
+  # Descomentar solo si necesitas notificaciones automáticas programadas
+  # scheduler:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: pregon-scheduler
+  #   restart: unless-stopped
+  #   environment:
+  #     - ENVIRONMENT=production
+  #     - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+  #     - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+  #     - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #     - CALENDAR_URL=${CALENDAR_URL}
+  #     - LOG_LEVEL=INFO
+  #   volumes:
+  #     - ./logs:/app/logs
+  #     - ./cache:/app/cache
+  #   networks:
+  #     - pregon-network
+  #   # TODO: Implementar scheduler correctamente con cron/schedule
+  #   command: ["python", "-c", "import time; time.sleep(86400)"]
 
 networks:
   pregon-network:
