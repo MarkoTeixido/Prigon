@@ -27,16 +27,18 @@ jobs:
         run: npm install -g @railway/cli
       
       - name: Deploy Discord Service
-        run: railway up --service=${{ secrets.RAILWAY_SERVICE_DISCORD }}
+        run: |
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway up --service ${{ secrets.RAILWAY_SERVICE_DISCORD }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       
       - name: Deploy WhatsApp Service
-        run: railway up --service=${{ secrets.RAILWAY_SERVICE_WHATSAPP }}
+        run: |
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+          railway up --service ${{ secrets.RAILWAY_SERVICE_WHATSAPP }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       
       - name: Deployment Summary
         run: |
