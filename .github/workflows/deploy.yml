@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy to Production
 
 on:
   workflow_run:
@@ -10,23 +10,35 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Railway
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
+    strategy:
+      matrix:
+        service:
+          - name: Discord Bot
+            id: ${{ secrets.RAILWAY_SERVICE_DISCORD }}
+          - name: WhatsApp Bot
+            id: ${{ secrets.RAILWAY_SERVICE_WHATSAPP }}
+    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Deploy Discord Service
-      uses: bervProject/railway-deploy@main
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      with:
-        service: "Pregon-Discord"
-    
-    - name: Deploy WhatsApp Service
-      uses: bervProject/railway-deploy@main
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      with:
-        service: "Pregon-WhatsApp"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      
+      - name: Deploy ${{ matrix.service.name }}
+        run: railway up --service=${{ matrix.service.id }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      
+      - name: Deployment Summary
+        run: |
+          echo "✅ ${{ matrix.service.name }} deployed successfully" >> $GITHUB_STEP_SUMMARY
