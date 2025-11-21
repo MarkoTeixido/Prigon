@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/MarkoTeixido/Prigon">
-    [agregar imagen - logo de Pregon]
+    <img src="https://i.imgur.com/8osiyMR.png" height="128"> 
   </a>
   <h2 align="center"><a href="https://github.com/MarkoTeixido/Prigon">Pregon</a></h2>
   <p align="center">Sistema inteligente de calendario académico para la Universidad Nacional de Villa Mercedes, potenciado por IA y MCP Server.<p>
