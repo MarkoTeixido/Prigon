@@ -64,7 +64,7 @@ coverage.xml
 # ============================================
 # Logs
 # ============================================
-logs/
+logs/*.log
 *.log
 pip-log.txt
 pip-delete-this-directory.txt
